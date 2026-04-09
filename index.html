@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>🌱 环保竞赛 · 全能复习 (移动优化)</title>
+    <title>🌱 环保竞赛 · 全能复习 (滚动修复)</title>
     <style>
         * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
         html, body { height: 100%; margin: 0; padding: 0; }
@@ -20,26 +20,27 @@
             border-radius: 36px; box-shadow: 0 20px 40px -10px rgba(20,60,20,0.3); 
             padding: 16px 20px; border: 1px solid rgba(80,130,80,0.2); 
             display: flex; gap: 16px; transition: all 0.2s; 
-            overflow: hidden;
+            /* 移除 overflow: hidden，让内部自然滚动 */
         }
 
-        /* 主面板 — 允许滚动，确保内容完整可见 */
+        /* 主面板 — 完全可滚动，无高度限制 */
         .main-panel { 
             flex: 1; min-width: 0; 
             display: flex; flex-direction: column; 
-            height: 100%; 
-            overflow-y: auto; 
-            padding-right: 4px;
+            /* 不再设置固定 height，让内容自然撑开并由 body 滚动 */
+            overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            padding-right: 4px;
         }
 
-        /* 目录面板 — 默认收起 (collapsed) */
+        /* 目录面板 — 默认收起 */
         .directory-panel { 
             background: #f4faf4; border-radius: 28px; padding: 16px 10px; 
             box-shadow: inset 0 2px 6px rgba(0,0,0,0.02), 0 6px 12px rgba(0,30,0,0.05); 
             border: 1px solid #caddca; display: flex; flex-direction: column; 
             transition: all 0.25s ease; width: 52px; 
             height: 100%;
+            overflow: hidden;
         }
         .directory-panel.expanded { width: 270px; padding: 16px 10px; }
         .dir-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -48,7 +49,6 @@
         .dir-toggle { background: none; border: none; font-size: 1.4rem; cursor: pointer; width: 32px; height: 32px; border-radius: 30px; display: flex; align-items: center; justify-content: center; color: #1e5f1e; }
         .dir-toggle:hover { background: #d0e4d0; }
 
-        /* 统计卡片 */
         .dir-stats { 
             display: flex; gap: 12px; padding: 6px 8px; margin-bottom: 8px; 
             background: #e2f0e2; border-radius: 30px; font-size: 0.85rem; 
@@ -56,8 +56,6 @@
         }
         .directory-panel:not(.expanded) .dir-stats { display: none; }
         .stat-item { display: flex; align-items: center; gap: 4px; }
-        .stat-correct { color: #1e6b1e; }
-        .stat-wrong { color: #b33; }
 
         .dir-list { overflow-y: auto; flex: 1; padding-right: 4px; min-height: 0; }
         .directory-panel:not(.expanded) .dir-list { display: none; }
@@ -90,7 +88,7 @@
         .progress-bar-bg { flex:1; height: 10px; background: #c0dcc0; border-radius: 20px; }
         .progress-fill { height: 10px; background: #1f6e1f; border-radius: 20px; width: 0%; }
 
-        .quiz-card { background: white; border-radius: 28px; padding: 18px 24px; box-shadow: inset 0 1px 4px #fff, 0 8px 14px -6px rgba(0,30,0,0.1); margin: 6px 0 12px; border: 1px solid #d0e6d0; flex: 1; display: flex; flex-direction: column; }
+        .quiz-card { background: white; border-radius: 28px; padding: 18px 24px; box-shadow: inset 0 1px 4px #fff, 0 8px 14px -6px rgba(0,30,0,0.1); margin: 6px 0 12px; border: 1px solid #d0e6d0; }
         .meta-row { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
         .type-tag { background: #e4f0e4; padding: 4px 14px; border-radius: 40px; font-weight: 600; font-size: 0.9rem; }
         .index-tag { font-size: 1.3rem; font-weight: 700; color: #193d19; }
@@ -116,28 +114,28 @@
         .small-note { opacity: 0.7; margin-top: 6px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; }
         .key-hint { background: #eaf0ea; padding: 3px 12px; border-radius: 30px; }
 
-        /* 移动端适配 */
+        /* 移动端适配：确保主面板滚动 */
         @media (max-width: 700px) {
-            body { padding: 6px; }
+            body { padding: 6px; align-items: flex-start; }
             .app-container { flex-direction: column; padding: 12px; height: auto; min-height: 100%; }
             .directory-panel { width: 100%; height: auto; max-height: 280px; margin-top: 12px; }
             .directory-panel.expanded { width: 100%; }
-            .main-panel { height: auto; overflow: visible; }
+            .main-panel { overflow-y: visible; }  /* 让主面板内容完全可见，由body滚动 */
             .quiz-card { max-height: none; }
             .bottom-nav { flex-wrap: wrap; gap: 10px; }
             .header h1 { font-size: 1.3rem; }
         }
 
-        /* 滚动条 */
-        .dir-list::-webkit-scrollbar { width: 5px; }
-        .dir-list::-webkit-scrollbar-thumb { background: #b0cfb0; border-radius: 10px; }
+        /* 滚动条美化 */
         .main-panel::-webkit-scrollbar { width: 5px; }
         .main-panel::-webkit-scrollbar-thumb { background: #b0cfb0; border-radius: 10px; }
+        .dir-list::-webkit-scrollbar { width: 5px; }
+        .dir-list::-webkit-scrollbar-thumb { background: #b0cfb0; border-radius: 10px; }
     </style>
 </head>
 <body>
 <div class="app-container" id="appContainer">
-    <!-- 左侧主区域 -->
+    <!-- 左侧主区域 (可滚动) -->
     <div class="main-panel" id="mainPanel">
         <div class="header">
             <h1>📋 环保竞赛 · 复习 <span class="badge" id="totalCountDisplay">0题</span></h1>
@@ -197,7 +195,7 @@
         </div>
     </div>
 
-    <!-- 右侧目录（默认收起，使用expanded类控制展开） -->
+    <!-- 右侧目录（默认收起） -->
     <div class="directory-panel" id="directoryPanel">
         <div class="dir-header">
             <h3>📑 题目目录</h3>
