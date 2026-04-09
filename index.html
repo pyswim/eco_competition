@@ -2,8 +2,8 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>🌱 环保竞赛 · 全能复习系统 (精修版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>🌱 环保竞赛 · 全能复习 (移动适配)</title>
     <style>
         * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
         html, body { height: 100%; margin: 0; padding: 0; }
@@ -23,7 +23,7 @@
             overflow: hidden;
         }
 
-        /* 主面板 — 占据剩余高度，内部flex列 */
+        /* 主面板 — 自动撑满 */
         .main-panel { 
             flex: 1; min-width: 0; 
             display: flex; flex-direction: column; 
@@ -32,20 +32,32 @@
             padding-right: 4px;
         }
 
-        /* 目录面板 — 固定高度滚动 */
+        /* 目录面板 — 固定高度滚动，顶部增加统计 */
         .directory-panel { 
             background: #f4faf4; border-radius: 28px; padding: 16px 10px; 
             box-shadow: inset 0 2px 6px rgba(0,0,0,0.02), 0 6px 12px rgba(0,30,0,0.05); 
             border: 1px solid #caddca; display: flex; flex-direction: column; 
-            transition: all 0.25s ease; width: 260px; 
+            transition: all 0.25s ease; width: 270px; 
             height: 100%;
         }
         .directory-panel.collapsed { width: 52px; padding: 16px 6px; }
-        .dir-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .dir-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .dir-header h3 { margin: 0; color: #1d4a1d; font-weight: 650; white-space: nowrap; font-size: 1.2rem; }
         .collapsed .dir-header h3 { display: none; }
         .dir-toggle { background: none; border: none; font-size: 1.4rem; cursor: pointer; width: 32px; height: 32px; border-radius: 30px; display: flex; align-items: center; justify-content: center; color: #1e5f1e; }
         .dir-toggle:hover { background: #d0e4d0; }
+
+        /* 统计卡片 */
+        .dir-stats { 
+            display: flex; gap: 12px; padding: 6px 8px; margin-bottom: 8px; 
+            background: #e2f0e2; border-radius: 30px; font-size: 0.85rem; 
+            justify-content: space-around;
+        }
+        .collapsed .dir-stats { display: none; }
+        .stat-item { display: flex; align-items: center; gap: 4px; }
+        .stat-correct { color: #1e6b1e; }
+        .stat-wrong { color: #b33; }
+
         .dir-list { overflow-y: auto; flex: 1; padding-right: 4px; min-height: 0; }
         .collapsed .dir-list { display: none; }
         .dir-item { padding: 8px 10px; margin: 5px 0; background: white; border-radius: 26px; border: 1px solid #c8dec8; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.1s; }
@@ -54,9 +66,13 @@
         .dir-index { font-weight: 700; color: #1e4a1e; min-width: 42px; font-size: 0.9rem; }
         .dir-type { font-size: 0.65rem; background: #b8d9b8; padding: 2px 6px; border-radius: 20px; color: #0a300a; }
         .dir-question { flex:1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem; }
+        .dir-icons { display: flex; gap: 4px; align-items: center; }
         .dir-mark { color: #d4a017; font-size: 1rem; }
+        .dir-status { font-size: 1rem; width: 18px; text-align: center; }
+        .dir-status.correct { color: #1e7e1e; }
+        .dir-status.wrong { color: #c0392b; }
 
-        /* 头部区域 */
+        /* 主区域样式 */
         .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
         h1 { margin: 0; font-weight: 650; color: #1b4c1b; display: flex; gap: 10px; font-size: 1.6rem; }
         .badge { background: #2e7d32; color: white; padding: 4px 14px; border-radius: 40px; font-size: 0.9rem; }
@@ -99,14 +115,25 @@
         .small-note { opacity: 0.7; margin-top: 6px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; }
         .key-hint { background: #eaf0ea; padding: 3px 12px; border-radius: 30px; }
 
-        /* 滚动条美化 */
+        /* 移动端适配 */
+        @media (max-width: 700px) {
+            body { padding: 6px; }
+            .app-container { flex-direction: column; padding: 12px; height: auto; min-height: 100%; }
+            .directory-panel { width: 100%; height: auto; max-height: 280px; margin-top: 12px; }
+            .directory-panel.collapsed { height: 52px; }
+            .main-panel { height: auto; overflow: visible; }
+            .quiz-card { max-height: none; }
+            .bottom-nav { flex-wrap: wrap; gap: 10px; }
+        }
+
+        /* 滚动条 */
         .dir-list::-webkit-scrollbar { width: 5px; }
         .dir-list::-webkit-scrollbar-thumb { background: #b0cfb0; border-radius: 10px; }
     </style>
 </head>
 <body>
 <div class="app-container" id="appContainer">
-    <!-- 左侧主区域（自动撑满） -->
+    <!-- 左侧主区域 -->
     <div class="main-panel">
         <div class="header">
             <h1>📋 环保竞赛 · 复习 <span class="badge" id="totalCountDisplay">0题</span></h1>
@@ -132,7 +159,6 @@
             <span id="positionIndicator" style="font-weight:600; min-width:70px;">0 / 0</span>
         </div>
 
-        <!-- 题目卡片（弹性撑开） -->
         <div class="quiz-card">
             <div class="meta-row">
                 <span class="type-tag" id="typeTag">单选题</span>
@@ -166,14 +192,19 @@
         </div>
     </div>
 
-    <!-- 右侧目录（可折叠，无底部提示文字） -->
+    <!-- 右侧目录（含统计） -->
     <div class="directory-panel" id="directoryPanel">
         <div class="dir-header">
             <h3>📑 题目目录</h3>
             <button class="dir-toggle" id="toggleDirBtn" title="收起/展开">◀</button>
         </div>
+        <!-- 新增统计栏 -->
+        <div class="dir-stats" id="dirStats">
+            <span class="stat-item"><span style="opacity:0.7;">✅</span> <span id="correctCount">0</span></span>
+            <span class="stat-item"><span style="opacity:0.7;">❌</span> <span id="wrongCount">0</span></span>
+            <span class="stat-item">⭐ <span id="markedCount">0</span></span>
+        </div>
         <div class="dir-list" id="dirList"></div>
-        <!-- 底部提示已删除 -->
     </div>
 </div>
 
@@ -217,6 +248,9 @@
         const directoryPanel = document.getElementById('directoryPanel');
         const prevBtnBottom = document.getElementById('prevBtnBottom');
         const nextBtnBottom = document.getElementById('nextBtnBottom');
+        const correctSpan = document.getElementById('correctCount');
+        const wrongSpan = document.getElementById('wrongCount');
+        const markedCountSpan = document.getElementById('markedCount');
 
         // ---------- 辅助函数 ----------
         function normalizeStr(s) { return String(s).trim().toLowerCase().replace(/\s+/g, ''); }
@@ -271,22 +305,48 @@
             totalSpan.textContent = `${questionBank.length}题`;
         }
 
+        // 计算正确/错误统计
+        function computeStats() {
+            let correct = 0, wrong = 0;
+            Object.values(answerRecords).forEach(rec => {
+                if (rec.correct) correct++; else wrong++;
+            });
+            return { correct, wrong, marked: markedSet.size };
+        }
+
         function renderDirectory() {
-            if (!questionBank.length) { dirList.innerHTML = '<div style="padding:16px;">暂无题目</div>'; return; }
+            if (!questionBank.length) { dirList.innerHTML = '<div style="padding:16px;">暂无题目</div>'; updateStatsDisplay(0,0,0); return; }
             const typeMap = { single:'单', multiple:'多', judge:'判', fill:'填' };
+            const stats = computeStats();
+            updateStatsDisplay(stats.correct, stats.wrong, stats.marked);
+            
             const html = filteredIndices.map((realIdx, pos) => {
                 const q = questionBank[realIdx];
                 const isMarked = markedSet.has(realIdx);
                 const activeClass = (pos === currentFilteredPos) ? 'active' : '';
                 const shortQ = q.question.length > 28 ? q.question.slice(0,26)+'…' : q.question;
+                const record = answerRecords[realIdx];
+                let statusIcon = '';
+                if (record) {
+                    statusIcon = record.correct ? '<span class="dir-status correct">✓</span>' : '<span class="dir-status wrong">✘</span>';
+                }
                 return `<div class="dir-item ${activeClass}" data-pos="${pos}">
                     <span class="dir-index">#${q.index}</span>
                     <span class="dir-type">${typeMap[q.type]||q.type}</span>
                     <span class="dir-question">${shortQ}</span>
-                    ${isMarked ? '<span class="dir-mark">⭐</span>' : ''}
+                    <span class="dir-icons">
+                        ${statusIcon}
+                        ${isMarked ? '<span class="dir-mark">⭐</span>' : ''}
+                    </span>
                 </div>`;
             }).join('');
             dirList.innerHTML = html;
+        }
+
+        function updateStatsDisplay(correct, wrong, marked) {
+            correctSpan.textContent = correct;
+            wrongSpan.textContent = wrong;
+            markedCountSpan.textContent = marked;
         }
 
         function renderQuestion() {
@@ -438,7 +498,6 @@
         function goPrev() { if(currentFilteredPos>0){ currentFilteredPos--; renderQuestion(); } }
         function goNext() { if(currentFilteredPos<filteredIndices.length-1){ currentFilteredPos++; renderQuestion(); } }
 
-        // 加载完整题库 (questions.json)
         async function loadFullQuestions() {
             try {
                 importStatus.textContent = '⏳ 加载中…';
@@ -448,12 +507,10 @@
                 loadQuestions(data);
             } catch (err) {
                 importStatus.innerHTML = `<span class="error-toast">❌ 加载失败: ${err.message}</span>`;
-                console.error(err);
             }
         }
 
-        // 离开提醒
-        function hasUnsaved() { return markedSet.size > 0 || Object.keys(answerRecords).length > 0 || Object.keys(userAnswers).some(k => userAnswers[k]?.trim()); }
+        function hasUnsaved() { return markedSet.size > 0 || Object.keys(answerRecords).length > 0; }
 
         // ---------- 事件绑定 ----------
         jsonUpload.addEventListener('change', async e => {
@@ -522,7 +579,7 @@
             }
         });
 
-        // 初始加载完整题库（自动）
+        // 自动加载完整题库
         loadFullQuestions();
     })();
 </script>
