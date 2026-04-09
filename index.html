@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>🌱 环保竞赛 · 全能复习系统 (精修版)</title>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
+        html, body { height: 100%; margin: 0; padding: 0; }
+        body { 
+            background: linear-gradient(145deg, #e6f3e6 0%, #c8e0c8 100%); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            padding: 12px; 
+        }
+        .app-container { 
+            max-width: 1400px; width: 100%; height: 100%; 
+            background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); 
+            border-radius: 36px; box-shadow: 0 20px 40px -10px rgba(20,60,20,0.3); 
+            padding: 16px 20px; border: 1px solid rgba(80,130,80,0.2); 
+            display: flex; gap: 16px; transition: all 0.2s; 
+            overflow: hidden;
+        }
+
+        /* 主面板 — 占据剩余高度，内部flex列 */
+        .main-panel { 
+            flex: 1; min-width: 0; 
+            display: flex; flex-direction: column; 
+            height: 100%; 
+            overflow-y: auto; 
+            padding-right: 4px;
+        }
+
+        /* 目录面板 — 固定高度滚动 */
+        .directory-panel { 
+            background: #f4faf4; border-radius: 28px; padding: 16px 10px; 
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.02), 0 6px 12px rgba(0,30,0,0.05); 
+            border: 1px solid #caddca; display: flex; flex-direction: column; 
+            transition: all 0.25s ease; width: 260px; 
+            height: 100%;
+        }
+        .directory-panel.collapsed { width: 52px; padding: 16px 6px; }
+        .dir-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .dir-header h3 { margin: 0; color: #1d4a1d; font-weight: 650; white-space: nowrap; font-size: 1.2rem; }
+        .collapsed .dir-header h3 { display: none; }
+        .dir-toggle { background: none; border: none; font-size: 1.4rem; cursor: pointer; width: 32px; height: 32px; border-radius: 30px; display: flex; align-items: center; justify-content: center; color: #1e5f1e; }
+        .dir-toggle:hover { background: #d0e4d0; }
+        .dir-list { overflow-y: auto; flex: 1; padding-right: 4px; min-height: 0; }
+        .collapsed .dir-list { display: none; }
+        .dir-item { padding: 8px 10px; margin: 5px 0; background: white; border-radius: 26px; border: 1px solid #c8dec8; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.1s; }
+        .dir-item:hover { background: #e2f0e2; }
+        .dir-item.active { background: #d0e8d0; border-color: #2e7d32; }
+        .dir-index { font-weight: 700; color: #1e4a1e; min-width: 42px; font-size: 0.9rem; }
+        .dir-type { font-size: 0.65rem; background: #b8d9b8; padding: 2px 6px; border-radius: 20px; color: #0a300a; }
+        .dir-question { flex:1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem; }
+        .dir-mark { color: #d4a017; font-size: 1rem; }
+
+        /* 头部区域 */
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+        h1 { margin: 0; font-weight: 650; color: #1b4c1b; display: flex; gap: 10px; font-size: 1.6rem; }
+        .badge { background: #2e7d32; color: white; padding: 4px 14px; border-radius: 40px; font-size: 0.9rem; }
+
+        .import-area { background: #eef5ee; border-radius: 40px; padding: 8px 16px; margin-bottom: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border: 1px dashed #2e7d32; }
+        .file-label { background: #1b5e20; color: white; padding: 6px 18px; border-radius: 60px; font-weight: 500; cursor: pointer; font-size: 0.9rem; }
+        .file-label input { display: none; }
+        .import-btn { background: white; border: 1.5px solid #1e5f1e; color: #1e5f1e; padding: 6px 18px; border-radius: 60px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+        .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 4px; }
+        .filter-btn { background: #e0ede0; border: none; padding: 6px 14px; border-radius: 40px; font-weight: 500; cursor: pointer; border: 1px solid #b0cfb0; font-size: 0.85rem; }
+        .filter-btn.active { background: #1b5e20; color: white; border-color: #1b5e20; }
+
+        .progress-area { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
+        .progress-bar-bg { flex:1; height: 10px; background: #c0dcc0; border-radius: 20px; }
+        .progress-fill { height: 10px; background: #1f6e1f; border-radius: 20px; width: 0%; }
+
+        .quiz-card { background: white; border-radius: 28px; padding: 18px 24px; box-shadow: inset 0 1px 4px #fff, 0 8px 14px -6px rgba(0,30,0,0.1); margin: 6px 0 12px; border: 1px solid #d0e6d0; flex: 1; display: flex; flex-direction: column; }
+        .meta-row { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+        .type-tag { background: #e4f0e4; padding: 4px 14px; border-radius: 40px; font-weight: 600; font-size: 0.9rem; }
+        .index-tag { font-size: 1.3rem; font-weight: 700; color: #193d19; }
+        .question-text { font-size: 1.15rem; font-weight: 500; line-height: 1.5; margin: 12px 0 16px; }
+        .options-area { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+        .option-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 16px; background: #f6fbf6; border-radius: 22px; border: 1.5px solid transparent; cursor: pointer; }
+        .option-item.selected { background: #d9f0d9; border-color: #2e7d32; }
+        .option-item input { margin-top: 3px; accent-color: #1f6e1f; width: 18px; height: 18px; }
+        .fill-input { width: 100%; padding: 14px 18px; border: 2px solid #b0cfb0; border-radius: 48px; background: white; font-size: 1rem; }
+
+        .action-bar { display: flex; gap: 14px; margin: 16px 0 6px; flex-wrap: wrap; }
+        .btn { padding: 10px 22px; border-radius: 60px; font-weight: 600; border: none; background: #e4f0e4; color: #1f4a1f; cursor: pointer; border: 1px solid #b2d2b2; font-size: 0.9rem; }
+        .btn-primary { background: #1b5e20; color: white; border: none; }
+        .btn-mark { background: #fff3cf; border-color: #e3bc5e; }
+        .answer-feedback { margin-top: 16px; padding: 14px 20px; background: #eef5e2; border-radius: 24px; border-left: 8px solid #2e7d32; }
+
+        .bottom-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+        .nav-buttons-group { display: flex; gap: 10px; }
+        .nav-btn { background: white; border: none; border-radius: 50px; padding: 10px 24px; font-weight: bold; font-size: 1rem; box-shadow: 0 3px 6px rgba(0,20,0,0.05); cursor: pointer; border: 1px solid #b8d9b8; }
+        .export-panel { display: flex; gap: 8px; }
+
+        .error-toast { color: #b33; background: #ffe6e6; padding: 4px 14px; border-radius: 40px; }
+        .small-note { opacity: 0.7; margin-top: 6px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; }
+        .key-hint { background: #eaf0ea; padding: 3px 12px; border-radius: 30px; }
+
+        /* 滚动条美化 */
+        .dir-list::-webkit-scrollbar { width: 5px; }
+        .dir-list::-webkit-scrollbar-thumb { background: #b0cfb0; border-radius: 10px; }
+    </style>
+</head>
+<body>
+<div class="app-container" id="appContainer">
+    <!-- 左侧主区域（自动撑满） -->
+    <div class="main-panel">
+        <div class="header">
+            <h1>📋 环保竞赛 · 复习 <span class="badge" id="totalCountDisplay">0题</span></h1>
+            <button class="btn" id="resetSessionBtn" style="padding:8px 20px;">🔄 重置进度</button>
+        </div>
+
+        <div class="import-area">
+            <label class="file-label">📤 导入JSON <input type="file" id="jsonUpload" accept=".json"></label>
+            <button class="import-btn" id="loadFullBtn">📚 加载完整题库</button>
+            <span id="importStatus" style="font-size:0.9rem;">等待导入…</span>
+        </div>
+
+        <div class="filter-bar">
+            <button class="filter-btn active" data-type="all">全部</button>
+            <button class="filter-btn" data-type="single">单选</button>
+            <button class="filter-btn" data-type="multiple">多选</button>
+            <button class="filter-btn" data-type="judge">判断</button>
+            <button class="filter-btn" data-type="fill">填空</button>
+        </div>
+
+        <div class="progress-area">
+            <div class="progress-bar-bg"><div class="progress-fill" id="progressFill"></div></div>
+            <span id="positionIndicator" style="font-weight:600; min-width:70px;">0 / 0</span>
+        </div>
+
+        <!-- 题目卡片（弹性撑开） -->
+        <div class="quiz-card">
+            <div class="meta-row">
+                <span class="type-tag" id="typeTag">单选题</span>
+                <span class="index-tag" id="indexTag">#0</span>
+                <span id="markIndicator" style="margin-left:auto;"></span>
+            </div>
+            <div class="question-text" id="questionText">请导入题库或点击“加载完整题库”</div>
+            <div id="optionsContainer" class="options-area"></div>
+            <div id="fillContainer"></div>
+            <div class="action-bar">
+                <button class="btn btn-primary" id="submitBtn">✅ 提交</button>
+                <button class="btn btn-mark" id="markBtn">☆ 标记</button>
+                <button class="btn" id="clearAnswerBtn">🗑️ 清除</button>
+            </div>
+            <div id="feedbackArea" class="answer-feedback" style="display:none;"></div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-buttons-group">
+                <button class="nav-btn" id="prevBtnBottom">← 上一题</button>
+                <button class="nav-btn" id="nextBtnBottom">下一题 →</button>
+            </div>
+            <div class="export-panel">
+                <button class="btn" id="exportMarkedBtn">📌 导出标记</button>
+                <button class="btn" id="exportProgressBtn">📊 导出记录</button>
+            </div>
+        </div>
+        <div class="small-note">
+            <span>✨ 填空支持多答案 · 键盘 ← → 切换</span>
+            <span class="key-hint">␣ 空格键 提交答案</span>
+        </div>
+    </div>
+
+    <!-- 右侧目录（可折叠，无底部提示文字） -->
+    <div class="directory-panel" id="directoryPanel">
+        <div class="dir-header">
+            <h3>📑 题目目录</h3>
+            <button class="dir-toggle" id="toggleDirBtn" title="收起/展开">◀</button>
+        </div>
+        <div class="dir-list" id="dirList"></div>
+        <!-- 底部提示已删除 -->
+    </div>
+</div>
+
+<script>
+    (function(){
+        "use strict";
+
+        // ---------- 核心状态 ----------
+        let questionBank = [];                
+        const userAnswers = {};              
+        const markedSet = new Set();          
+        const answerRecords = {};             
+
+        let currentFilter = 'all';            
+        let filteredIndices = [];             
+        let currentFilteredPos = 0;           
+
+        // DOM 元素
+        const totalSpan = document.getElementById('totalCountDisplay');
+        const importStatus = document.getElementById('importStatus');
+        const progressFill = document.getElementById('progressFill');
+        const positionIndicator = document.getElementById('positionIndicator');
+        const typeTag = document.getElementById('typeTag');
+        const indexTag = document.getElementById('indexTag');
+        const questionText = document.getElementById('questionText');
+        const optionsDiv = document.getElementById('optionsContainer');
+        const fillDiv = document.getElementById('fillContainer');
+        const feedbackDiv = document.getElementById('feedbackArea');
+        const markBtn = document.getElementById('markBtn');
+        const markIndicator = document.getElementById('markIndicator');
+        const dirList = document.getElementById('dirList');
+        const jsonUpload = document.getElementById('jsonUpload');
+        const loadFullBtn = document.getElementById('loadFullBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const clearAnswerBtn = document.getElementById('clearAnswerBtn');
+        const resetSessionBtn = document.getElementById('resetSessionBtn');
+        const exportMarkedBtn = document.getElementById('exportMarkedBtn');
+        const exportProgressBtn = document.getElementById('exportProgressBtn');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const toggleDirBtn = document.getElementById('toggleDirBtn');
+        const directoryPanel = document.getElementById('directoryPanel');
+        const prevBtnBottom = document.getElementById('prevBtnBottom');
+        const nextBtnBottom = document.getElementById('nextBtnBottom');
+
+        // ---------- 辅助函数 ----------
+        function normalizeStr(s) { return String(s).trim().toLowerCase().replace(/\s+/g, ''); }
+
+        function isAnswerCorrect(q, userAns) {
+            if (!userAns && userAns !== '') return false;
+            const correct = q.answer;
+            if (q.type === 'multiple') {
+                const u = userAns.toUpperCase().split('').sort().join('');
+                const c = String(correct).toUpperCase().split('').sort().join('');
+                return u === c;
+            } else if (q.type === 'fill') {
+                const norm = normalizeStr(userAns);
+                const corr = String(correct);
+                if (corr.includes('/') || corr.includes('或') || corr.includes('都算对')) {
+                    const parts = corr.split(/[\/或,，]/).map(p => normalizeStr(p)).filter(p => p);
+                    return parts.includes(norm);
+                }
+                return norm === normalizeStr(corr);
+            } else if (q.type === 'judge') {
+                const u = userAns.trim(); const c = String(correct).trim();
+                if (u === '对' || u === '正确') return c === '对' || c === '正确';
+                if (u === '错' || u === '错误') return c === '错' || c === '错误';
+                return u === c;
+            } else {
+                return String(userAns).trim().toUpperCase() === String(correct).trim().toUpperCase();
+            }
+        }
+
+        function updateFilteredIndices() {
+            if (currentFilter === 'all') {
+                filteredIndices = questionBank.map((_, idx) => idx);
+            } else {
+                filteredIndices = questionBank.reduce((arr, q, idx) => {
+                    if (q.type === currentFilter) arr.push(idx);
+                    return arr;
+                }, []);
+            }
+            if (currentFilteredPos >= filteredIndices.length) currentFilteredPos = Math.max(0, filteredIndices.length - 1);
+        }
+
+        function getCurrentQuestion() {
+            if (filteredIndices.length === 0) return null;
+            return questionBank[filteredIndices[currentFilteredPos]];
+        }
+
+        function updateProgress() {
+            const total = filteredIndices.length;
+            const answered = filteredIndices.filter(idx => userAnswers[idx] && String(userAnswers[idx]).trim() !== '').length;
+            progressFill.style.width = total ? (answered / total) * 100 + '%' : '0%';
+            positionIndicator.textContent = total ? `${currentFilteredPos+1} / ${total}` : '0 / 0';
+            totalSpan.textContent = `${questionBank.length}题`;
+        }
+
+        function renderDirectory() {
+            if (!questionBank.length) { dirList.innerHTML = '<div style="padding:16px;">暂无题目</div>'; return; }
+            const typeMap = { single:'单', multiple:'多', judge:'判', fill:'填' };
+            const html = filteredIndices.map((realIdx, pos) => {
+                const q = questionBank[realIdx];
+                const isMarked = markedSet.has(realIdx);
+                const activeClass = (pos === currentFilteredPos) ? 'active' : '';
+                const shortQ = q.question.length > 28 ? q.question.slice(0,26)+'…' : q.question;
+                return `<div class="dir-item ${activeClass}" data-pos="${pos}">
+                    <span class="dir-index">#${q.index}</span>
+                    <span class="dir-type">${typeMap[q.type]||q.type}</span>
+                    <span class="dir-question">${shortQ}</span>
+                    ${isMarked ? '<span class="dir-mark">⭐</span>' : ''}
+                </div>`;
+            }).join('');
+            dirList.innerHTML = html;
+        }
+
+        function renderQuestion() {
+            const q = getCurrentQuestion();
+            if (!q) {
+                questionText.textContent = '当前筛选下无题目';
+                optionsDiv.innerHTML = ''; fillDiv.innerHTML = ''; 
+                markIndicator.textContent = ''; markBtn.textContent = '☆ 标记';
+                feedbackDiv.style.display = 'none';
+                updateProgress(); renderDirectory();
+                return;
+            }
+            const realIdx = filteredIndices[currentFilteredPos];
+            const typeMap = { single:'单选题', multiple:'多选题', judge:'判断题', fill:'填空题' };
+            typeTag.textContent = typeMap[q.type] || q.type;
+            indexTag.textContent = `#${q.index} ${q.deprecated ? '⚠️作废' : ''}`;
+            questionText.textContent = q.question;
+            
+            const isMarked = markedSet.has(realIdx);
+            markBtn.textContent = isMarked ? '⭐ 取消标记' : '☆ 标记此题';
+            markIndicator.textContent = isMarked ? '🔖 已标记' : '';
+            
+            optionsDiv.innerHTML = ''; optionsDiv.style.display = 'none';
+            fillDiv.innerHTML = ''; fillDiv.style.display = 'none';
+            const userAns = userAnswers[realIdx] || '';
+
+            if (q.type === 'single' || q.type === 'multiple') {
+                optionsDiv.style.display = 'flex';
+                if (q.options) {
+                    q.options.forEach((opt, idx) => {
+                        const letter = String.fromCharCode(65+idx);
+                        const optText = opt.replace(/^[A-Z][\.、\s]*/, '');
+                        const wrap = document.createElement('div'); wrap.className = 'option-item';
+                        const input = document.createElement('input');
+                        input.type = q.type === 'single' ? 'radio' : 'checkbox';
+                        input.name = 'qOpt'; input.value = letter;
+                        if (q.type === 'single' && userAns === letter) input.checked = true;
+                        if (q.type === 'multiple' && userAns.includes(letter)) input.checked = true;
+                        
+                        input.addEventListener('change', () => {
+                            if (q.type === 'single') {
+                                userAnswers[realIdx] = letter;
+                            } else {
+                                const checked = [...optionsDiv.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value);
+                                userAnswers[realIdx] = checked.sort().join('');
+                            }
+                            delete answerRecords[realIdx];
+                            feedbackDiv.style.display = 'none';
+                            updateProgress(); renderDirectory();
+                        });
+                        const span = document.createElement('span'); span.textContent = `${letter}. ${optText}`; span.style.flex='1';
+                        wrap.appendChild(input); wrap.appendChild(span);
+                        wrap.addEventListener('click', (e) => { if(e.target.tagName!=='INPUT') input.click(); });
+                        if (input.checked) wrap.classList.add('selected');
+                        optionsDiv.appendChild(wrap);
+                    });
+                }
+            } else if (q.type === 'judge') {
+                optionsDiv.style.display = 'flex';
+                ['对', '错'].forEach(val => {
+                    const wrap = document.createElement('div'); wrap.className = 'option-item';
+                    const radio = document.createElement('input'); radio.type='radio'; radio.name='judgeOpt'; radio.value=val;
+                    if (userAns === val) radio.checked = true;
+                    radio.addEventListener('change', ()=>{
+                        userAnswers[realIdx] = val;
+                        delete answerRecords[realIdx];
+                        feedbackDiv.style.display = 'none';
+                        updateProgress(); renderDirectory();
+                    });
+                    const span = document.createElement('span'); span.textContent = val==='对'?'✅ 正确':'❌ 错误';
+                    wrap.appendChild(radio); wrap.appendChild(span);
+                    wrap.addEventListener('click', ()=> radio.click());
+                    if (radio.checked) wrap.classList.add('selected');
+                    optionsDiv.appendChild(wrap);
+                });
+            } else if (q.type === 'fill') {
+                fillDiv.style.display = 'block';
+                fillDiv.innerHTML = `<input type="text" id="fillInput" class="fill-input" placeholder="输入答案" value="${userAns.replace(/"/g,'&quot;')}" autocomplete="off">`;
+                document.getElementById('fillInput').addEventListener('input', (e)=>{
+                    userAnswers[realIdx] = e.target.value;
+                    delete answerRecords[realIdx];
+                    feedbackDiv.style.display = 'none';
+                    updateProgress(); renderDirectory();
+                });
+            }
+
+            if (answerRecords[realIdx]) showFeedback();
+            else feedbackDiv.style.display = 'none';
+            updateProgress();
+            renderDirectory();
+        }
+
+        function showFeedback() {
+            const q = getCurrentQuestion(); if (!q) return;
+            const realIdx = filteredIndices[currentFilteredPos];
+            const rec = answerRecords[realIdx];
+            if (!rec) { feedbackDiv.style.display = 'none'; return; }
+            feedbackDiv.style.display = 'block';
+            let correctShow = q.answer;
+            if (q.type === 'judge') correctShow = (q.answer==='对'||q.answer==='正确')?'对':'错';
+            feedbackDiv.innerHTML = `<div style="display:flex; gap:20px; flex-wrap:wrap;"><span style="font-size:1.2rem;">${rec.correct?'✅正确':'❌错误'}</span><span>正确答案：<strong>${correctShow}</strong></span>${!rec.correct?`<span>你的：${rec.userAnswer}</span>`:''}</div>`;
+        }
+
+        function handleSubmit() {
+            const q = getCurrentQuestion(); if (!q) return;
+            const realIdx = filteredIndices[currentFilteredPos];
+            const userAns = userAnswers[realIdx] || '';
+            const correct = isAnswerCorrect(q, userAns);
+            answerRecords[realIdx] = { correct, userAnswer: userAns };
+            showFeedback();
+            renderDirectory();
+        }
+
+        function setFilter(type) {
+            currentFilter = type;
+            filterBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.type === type));
+            updateFilteredIndices();
+            currentFilteredPos = filteredIndices.length ? 0 : 0;
+            renderQuestion();
+        }
+
+        function loadQuestions(data) {
+            if (!Array.isArray(data)) throw new Error('需为数组');
+            questionBank = data.filter(q => q && q.question && q.type);
+            for (let k in userAnswers) delete userAnswers[k];
+            markedSet.clear();
+            for (let k in answerRecords) delete answerRecords[k];
+            currentFilter = 'all';
+            filterBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.type==='all'));
+            updateFilteredIndices();
+            currentFilteredPos = 0;
+            importStatus.textContent = `✅ 已加载 ${questionBank.length} 题`;
+            renderQuestion();
+        }
+
+        function resetProgress() {
+            for (let k in userAnswers) delete userAnswers[k];
+            markedSet.clear();
+            for (let k in answerRecords) delete answerRecords[k];
+            renderQuestion();
+            importStatus.textContent = `🔄 进度已重置`;
+        }
+
+        function downloadJSON(obj, name) { 
+            const b = new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}); 
+            const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click(); 
+        }
+
+        function goPrev() { if(currentFilteredPos>0){ currentFilteredPos--; renderQuestion(); } }
+        function goNext() { if(currentFilteredPos<filteredIndices.length-1){ currentFilteredPos++; renderQuestion(); } }
+
+        // 加载完整题库 (questions.json)
+        async function loadFullQuestions() {
+            try {
+                importStatus.textContent = '⏳ 加载中…';
+                const res = await fetch('./questions.json');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                loadQuestions(data);
+            } catch (err) {
+                importStatus.innerHTML = `<span class="error-toast">❌ 加载失败: ${err.message}</span>`;
+                console.error(err);
+            }
+        }
+
+        // 离开提醒
+        function hasUnsaved() { return markedSet.size > 0 || Object.keys(answerRecords).length > 0 || Object.keys(userAnswers).some(k => userAnswers[k]?.trim()); }
+
+        // ---------- 事件绑定 ----------
+        jsonUpload.addEventListener('change', async e => {
+            const f = e.target.files[0]; if(!f)return;
+            try { const text = await f.text(); loadQuestions(JSON.parse(text)); } catch(err) { importStatus.innerHTML=`<span class="error-toast">❌ ${err.message}</span>`; }
+            jsonUpload.value='';
+        });
+        loadFullBtn.addEventListener('click', loadFullQuestions);
+        filterBtns.forEach(btn => btn.addEventListener('click', ()=> setFilter(btn.dataset.type)));
+        submitBtn.addEventListener('click', handleSubmit);
+        markBtn.addEventListener('click', ()=>{
+            const q = getCurrentQuestion(); if(!q)return;
+            const realIdx = filteredIndices[currentFilteredPos];
+            markedSet.has(realIdx) ? markedSet.delete(realIdx) : markedSet.add(realIdx);
+            renderQuestion();
+        });
+        clearAnswerBtn.addEventListener('click', ()=>{
+            const q = getCurrentQuestion(); if(!q)return;
+            delete userAnswers[filteredIndices[currentFilteredPos]];
+            delete answerRecords[filteredIndices[currentFilteredPos]];
+            renderQuestion();
+        });
+        resetSessionBtn.addEventListener('click', resetProgress);
+        exportMarkedBtn.addEventListener('click', ()=>{
+            const markedQs = Array.from(markedSet).map(idx => questionBank[idx]);
+            downloadJSON(markedQs, 'marked_questions.json');
+        });
+        exportProgressBtn.addEventListener('click', ()=>{
+            const details = Object.entries(answerRecords).map(([idx, rec])=>{
+                const q = questionBank[idx];
+                return { index: q.index, type: q.type, question: q.question, userAnswer: rec.userAnswer, correctAnswer: q.answer, isCorrect: rec.correct };
+            });
+            downloadJSON({ total: questionBank.length, answered: details.length, correct: details.filter(d=>d.isCorrect).length, details }, 'progress.json');
+        });
+
+        prevBtnBottom.addEventListener('click', goPrev);
+        nextBtnBottom.addEventListener('click', goNext);
+
+        dirList.addEventListener('click', (e) => {
+            const item = e.target.closest('.dir-item');
+            if (!item) return;
+            const pos = parseInt(item.dataset.pos, 10);
+            if (!isNaN(pos)) { currentFilteredPos = pos; renderQuestion(); }
+        });
+
+        let collapsed = false;
+        toggleDirBtn.addEventListener('click', ()=>{
+            collapsed = !collapsed;
+            directoryPanel.classList.toggle('collapsed', collapsed);
+            toggleDirBtn.textContent = collapsed ? '▶' : '◀';
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev(); }
+            else if (e.key === 'ArrowRight') { e.preventDefault(); goNext(); }
+            else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); handleSubmit(); }
+        });
+
+        window.addEventListener('beforeunload', (e) => {
+            if (hasUnsaved()) {
+                const msg = '您有未保存的标记或答题记录，确定离开吗？';
+                e.preventDefault();
+                e.returnValue = msg;
+                return msg;
+            }
+        });
+
+        // 初始加载完整题库（自动）
+        loadFullQuestions();
+    })();
+</script>
+</body>
+</html>
