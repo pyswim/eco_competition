@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>🌱 环保竞赛 · 全能复习 (自动保存)</title>
+    <title>🌱 环保竞赛 · 全能复习 (计时版)</title>
     <style>
         * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
         html, body { height: 100%; margin: 0; padding: 0; }
@@ -98,6 +98,7 @@
         .btn { padding: 10px 22px; border-radius: 60px; font-weight: 600; border: none; background: #e4f0e4; color: #1f4a1f; cursor: pointer; border: 1px solid #b2d2b2; font-size: 0.9rem; }
         .btn-primary { background: #1b5e20; color: white; border: none; }
         .btn-mark { background: #fff3cf; border-color: #e3bc5e; }
+        .btn-small { padding: 6px 12px; font-size: 0.8rem; }
         .answer-feedback { margin-top: 16px; padding: 14px 20px; background: #eef5e2; border-radius: 24px; border-left: 8px solid #2e7d32; }
 
         .bottom-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
@@ -110,6 +111,35 @@
         .key-hint { background: #eaf0ea; padding: 3px 12px; border-radius: 30px; }
         .save-indicator { font-size: 0.8rem; color: #2e7d32; margin-left: 10px; }
 
+        /* 计时器区域 */
+        .timer-panel {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f0f7f0;
+            padding: 6px 14px;
+            border-radius: 40px;
+            border: 1px solid #b8d9b8;
+        }
+        .timer-display {
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #1e4a1e;
+            min-width: 90px;
+            text-align: center;
+        }
+        .timer-btn {
+            background: white;
+            border: 1px solid #9bc09b;
+            color: #1f4a1f;
+            padding: 4px 10px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
         @media (max-width: 700px) {
             body { padding: 6px; align-items: flex-start; }
             .app-container { flex-direction: column; padding: 12px; height: auto; min-height: 100%; }
@@ -119,6 +149,7 @@
             .quiz-card { max-height: none; }
             .bottom-nav { flex-wrap: wrap; gap: 10px; }
             .header h1 { font-size: 1.3rem; }
+            .timer-panel { margin-top: 4px; }
         }
 
         .main-panel::-webkit-scrollbar { width: 5px; }
@@ -132,7 +163,13 @@
     <div class="main-panel" id="mainPanel">
         <div class="header">
             <h1>📋 环保竞赛 · 复习 <span class="badge" id="totalCountDisplay">0题</span></h1>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div class="timer-panel">
+                    <span class="timer-display" id="timerDisplay">00:00:00</span>
+                    <button class="timer-btn" id="timerStartBtn">▶ 开始</button>
+                    <button class="timer-btn" id="timerPauseBtn">⏸️ 暂停</button>
+                    <button class="timer-btn" id="timerResetBtn">↺ 重置</button>
+                </div>
                 <span class="save-indicator" id="saveIndicator">💾 已自动保存</span>
                 <button class="btn" id="resetSessionBtn" style="padding:8px 20px;">🔄 重置进度</button>
             </div>
@@ -212,6 +249,7 @@
 
         // ---------- 存储键 ----------
         const STORAGE_KEY = 'eco_quiz_progress';
+        const TIMER_STORAGE_KEY = 'eco_quiz_timer';
 
         // ---------- 核心状态 ----------
         let questionBank = [];                
@@ -222,6 +260,11 @@
         let currentFilter = 'all';            
         let filteredIndices = [];             
         let currentFilteredPos = 0;           
+
+        // 计时器相关
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let isTimerRunning = false;
 
         // DOM 元素
         const totalSpan = document.getElementById('totalCountDisplay');
@@ -255,6 +298,71 @@
         const markedCountSpan = document.getElementById('markedCount');
         const mainPanel = document.getElementById('mainPanel');
         const saveIndicator = document.getElementById('saveIndicator');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const timerStartBtn = document.getElementById('timerStartBtn');
+        const timerPauseBtn = document.getElementById('timerPauseBtn');
+        const timerResetBtn = document.getElementById('timerResetBtn');
+
+        // ---------- 计时器函数 ----------
+        function formatTime(sec) {
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function updateTimerDisplay() {
+            timerDisplay.textContent = formatTime(timerSeconds);
+        }
+
+        function startTimer() {
+            if (isTimerRunning) return;
+            isTimerRunning = true;
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                updateTimerDisplay();
+                saveTimerState();
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            isTimerRunning = false;
+            saveTimerState();
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timerSeconds = 0;
+            updateTimerDisplay();
+            saveTimerState();
+        }
+
+        function saveTimerState() {
+            try {
+                localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify({
+                    seconds: timerSeconds,
+                    running: isTimerRunning
+                }));
+            } catch(e) {}
+        }
+
+        function loadTimerState() {
+            try {
+                const saved = localStorage.getItem(TIMER_STORAGE_KEY);
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    timerSeconds = state.seconds || 0;
+                    updateTimerDisplay();
+                    if (state.running) {
+                        startTimer();
+                    }
+                }
+            } catch(e) {}
+        }
 
         // ---------- 辅助函数 ----------
         function normalizeStr(s) { return String(s).trim().toLowerCase().replace(/\s+/g, ''); }
@@ -292,15 +400,13 @@
                 timestamp: Date.now(),
                 userAnswers: { ...userAnswers },
                 marked: Array.from(markedSet),
-                answerRecords: { ...answerRecords }
+                answerRecords: { ...answerRecords },
+                timerSeconds: timerSeconds
             };
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
                 saveIndicator.textContent = '💾 已自动保存';
-                setTimeout(() => saveIndicator.textContent = '💾 已自动保存', 200);
-            } catch(e) {
-                console.warn('保存失败', e);
-            }
+            } catch(e) {}
         }
 
         function loadProgress() {
@@ -311,12 +417,10 @@
                 const progress = JSON.parse(raw);
                 if (!progress || !progress.userAnswers) return false;
 
-                // 清空当前状态
                 for (let k in userAnswers) delete userAnswers[k];
                 markedSet.clear();
                 for (let k in answerRecords) delete answerRecords[k];
 
-                // 恢复 (仅恢复题库中存在的题目索引)
                 Object.entries(progress.userAnswers).forEach(([idx, ans]) => {
                     if (questionBank[idx]) userAnswers[idx] = ans;
                 });
@@ -327,16 +431,18 @@
                     if (questionBank[idx]) answerRecords[idx] = rec;
                 });
 
+                if (progress.timerSeconds !== undefined) {
+                    timerSeconds = progress.timerSeconds;
+                    updateTimerDisplay();
+                }
                 saveIndicator.textContent = '💾 已恢复进度';
                 setTimeout(() => saveIndicator.textContent = '💾 已自动保存', 1500);
                 return true;
             } catch(e) {
-                console.warn('恢复失败', e);
                 return false;
             }
         }
 
-        // 自动保存触发器
         function autoSave() {
             saveProgress();
         }
@@ -545,9 +651,8 @@
             currentFilteredPos = 0;
             importStatus.textContent = `✅ 已加载 ${questionBank.length} 题`;
             
-            // 尝试恢复进度
             const restored = loadProgress();
-            if (!restored) autoSave(); // 首次保存
+            if (!restored) autoSave();
             
             renderQuestion();
         }
@@ -583,16 +688,13 @@
 
         function hasUnsaved() { return markedSet.size > 0 || Object.keys(answerRecords).length > 0; }
 
-        // 导入答题记录
         function importProgressFromFile(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const data = JSON.parse(e.target.result);
-                    // 兼容导出格式：可能是包含details的对象，或直接是进度对象
                     let progress = data;
                     if (data.details && Array.isArray(data.details)) {
-                        // 导出记录格式转换
                         progress = { userAnswers: {}, marked: [], answerRecords: {} };
                         data.details.forEach(d => {
                             const q = questionBank.find(qq => qq.index === d.index && qq.type === d.type);
@@ -606,7 +708,6 @@
                     
                     if (!progress.userAnswers) throw new Error('无效的进度文件');
                     
-                    // 清空当前并导入
                     for (let k in userAnswers) delete userAnswers[k];
                     markedSet.clear();
                     for (let k in answerRecords) delete answerRecords[k];
@@ -639,8 +740,6 @@
             jsonUpload.value='';
         });
         loadFullBtn.addEventListener('click', loadFullQuestions);
-        
-        // 导入记录按钮
         importProgressBtn.addEventListener('click', () => {
             const input = document.createElement('input');
             input.type = 'file';
@@ -699,6 +798,11 @@
             toggleDirBtn.textContent = expanded ? '◀' : '▶';
         });
 
+        // 计时器按钮
+        timerStartBtn.addEventListener('click', startTimer);
+        timerPauseBtn.addEventListener('click', pauseTimer);
+        timerResetBtn.addEventListener('click', resetTimer);
+
         // 键盘 & 滑动
         window.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -727,6 +831,8 @@
             }
         });
 
+        // 加载计时器状态
+        loadTimerState();
         // 自动加载完整题库
         loadFullQuestions();
     })();
