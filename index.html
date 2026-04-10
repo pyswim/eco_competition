@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>🌱 环保竞赛 · 全能复习 (滚动修复)</title>
+    <title>🌱 环保竞赛 · 全能复习 (自动保存)</title>
     <style>
         * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
         html, body { height: 100%; margin: 0; padding: 0; }
@@ -20,20 +20,16 @@
             border-radius: 36px; box-shadow: 0 20px 40px -10px rgba(20,60,20,0.3); 
             padding: 16px 20px; border: 1px solid rgba(80,130,80,0.2); 
             display: flex; gap: 16px; transition: all 0.2s; 
-            /* 移除 overflow: hidden，让内部自然滚动 */
         }
 
-        /* 主面板 — 完全可滚动，无高度限制 */
         .main-panel { 
             flex: 1; min-width: 0; 
             display: flex; flex-direction: column; 
-            /* 不再设置固定 height，让内容自然撑开并由 body 滚动 */
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             padding-right: 4px;
         }
 
-        /* 目录面板 — 默认收起 */
         .directory-panel { 
             background: #f4faf4; border-radius: 28px; padding: 16px 10px; 
             box-shadow: inset 0 2px 6px rgba(0,0,0,0.02), 0 6px 12px rgba(0,30,0,0.05); 
@@ -71,7 +67,6 @@
         .dir-status.correct { color: #1e7e1e; }
         .dir-status.wrong { color: #c0392b; }
 
-        /* 主区域样式 */
         .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
         h1 { margin: 0; font-weight: 650; color: #1b4c1b; display: flex; gap: 10px; font-size: 1.5rem; }
         .badge { background: #2e7d32; color: white; padding: 4px 14px; border-radius: 40px; font-size: 0.9rem; }
@@ -113,20 +108,19 @@
         .error-toast { color: #b33; background: #ffe6e6; padding: 4px 14px; border-radius: 40px; }
         .small-note { opacity: 0.7; margin-top: 6px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; }
         .key-hint { background: #eaf0ea; padding: 3px 12px; border-radius: 30px; }
+        .save-indicator { font-size: 0.8rem; color: #2e7d32; margin-left: 10px; }
 
-        /* 移动端适配：确保主面板滚动 */
         @media (max-width: 700px) {
             body { padding: 6px; align-items: flex-start; }
             .app-container { flex-direction: column; padding: 12px; height: auto; min-height: 100%; }
             .directory-panel { width: 100%; height: auto; max-height: 280px; margin-top: 12px; }
             .directory-panel.expanded { width: 100%; }
-            .main-panel { overflow-y: visible; }  /* 让主面板内容完全可见，由body滚动 */
+            .main-panel { overflow-y: visible; }
             .quiz-card { max-height: none; }
             .bottom-nav { flex-wrap: wrap; gap: 10px; }
             .header h1 { font-size: 1.3rem; }
         }
 
-        /* 滚动条美化 */
         .main-panel::-webkit-scrollbar { width: 5px; }
         .main-panel::-webkit-scrollbar-thumb { background: #b0cfb0; border-radius: 10px; }
         .dir-list::-webkit-scrollbar { width: 5px; }
@@ -135,16 +129,19 @@
 </head>
 <body>
 <div class="app-container" id="appContainer">
-    <!-- 左侧主区域 (可滚动) -->
     <div class="main-panel" id="mainPanel">
         <div class="header">
             <h1>📋 环保竞赛 · 复习 <span class="badge" id="totalCountDisplay">0题</span></h1>
-            <button class="btn" id="resetSessionBtn" style="padding:8px 20px;">🔄 重置进度</button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="save-indicator" id="saveIndicator">💾 已自动保存</span>
+                <button class="btn" id="resetSessionBtn" style="padding:8px 20px;">🔄 重置进度</button>
+            </div>
         </div>
 
         <div class="import-area">
             <label class="file-label">📤 导入JSON <input type="file" id="jsonUpload" accept=".json"></label>
             <button class="import-btn" id="loadFullBtn">📚 加载完整题库</button>
+            <button class="import-btn" id="importProgressBtn">📂 导入记录</button>
             <span id="importStatus" style="font-size:0.9rem;">等待导入…</span>
         </div>
 
@@ -195,7 +192,6 @@
         </div>
     </div>
 
-    <!-- 右侧目录（默认收起） -->
     <div class="directory-panel" id="directoryPanel">
         <div class="dir-header">
             <h3>📑 题目目录</h3>
@@ -213,6 +209,9 @@
 <script>
     (function(){
         "use strict";
+
+        // ---------- 存储键 ----------
+        const STORAGE_KEY = 'eco_quiz_progress';
 
         // ---------- 核心状态 ----------
         let questionBank = [];                
@@ -240,6 +239,7 @@
         const dirList = document.getElementById('dirList');
         const jsonUpload = document.getElementById('jsonUpload');
         const loadFullBtn = document.getElementById('loadFullBtn');
+        const importProgressBtn = document.getElementById('importProgressBtn');
         const submitBtn = document.getElementById('submitBtn');
         const clearAnswerBtn = document.getElementById('clearAnswerBtn');
         const resetSessionBtn = document.getElementById('resetSessionBtn');
@@ -254,6 +254,7 @@
         const wrongSpan = document.getElementById('wrongCount');
         const markedCountSpan = document.getElementById('markedCount');
         const mainPanel = document.getElementById('mainPanel');
+        const saveIndicator = document.getElementById('saveIndicator');
 
         // ---------- 辅助函数 ----------
         function normalizeStr(s) { return String(s).trim().toLowerCase().replace(/\s+/g, ''); }
@@ -283,6 +284,64 @@
             }
         }
 
+        // ---------- 进度保存与恢复 ----------
+        function saveProgress() {
+            if (!questionBank.length) return;
+            const progress = {
+                version: 1,
+                timestamp: Date.now(),
+                userAnswers: { ...userAnswers },
+                marked: Array.from(markedSet),
+                answerRecords: { ...answerRecords }
+            };
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+                saveIndicator.textContent = '💾 已自动保存';
+                setTimeout(() => saveIndicator.textContent = '💾 已自动保存', 200);
+            } catch(e) {
+                console.warn('保存失败', e);
+            }
+        }
+
+        function loadProgress() {
+            if (!questionBank.length) return false;
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const progress = JSON.parse(raw);
+                if (!progress || !progress.userAnswers) return false;
+
+                // 清空当前状态
+                for (let k in userAnswers) delete userAnswers[k];
+                markedSet.clear();
+                for (let k in answerRecords) delete answerRecords[k];
+
+                // 恢复 (仅恢复题库中存在的题目索引)
+                Object.entries(progress.userAnswers).forEach(([idx, ans]) => {
+                    if (questionBank[idx]) userAnswers[idx] = ans;
+                });
+                (progress.marked || []).forEach(idx => {
+                    if (questionBank[idx]) markedSet.add(Number(idx));
+                });
+                Object.entries(progress.answerRecords || {}).forEach(([idx, rec]) => {
+                    if (questionBank[idx]) answerRecords[idx] = rec;
+                });
+
+                saveIndicator.textContent = '💾 已恢复进度';
+                setTimeout(() => saveIndicator.textContent = '💾 已自动保存', 1500);
+                return true;
+            } catch(e) {
+                console.warn('恢复失败', e);
+                return false;
+            }
+        }
+
+        // 自动保存触发器
+        function autoSave() {
+            saveProgress();
+        }
+
+        // ---------- 渲染相关 ----------
         function updateFilteredIndices() {
             if (currentFilter === 'all') {
                 filteredIndices = questionBank.map((_, idx) => idx);
@@ -398,6 +457,7 @@
                             delete answerRecords[realIdx];
                             feedbackDiv.style.display = 'none';
                             updateProgress(); renderDirectory();
+                            autoSave();
                         });
                         const span = document.createElement('span'); span.textContent = `${letter}. ${optText}`; span.style.flex='1';
                         wrap.appendChild(input); wrap.appendChild(span);
@@ -417,6 +477,7 @@
                         delete answerRecords[realIdx];
                         feedbackDiv.style.display = 'none';
                         updateProgress(); renderDirectory();
+                        autoSave();
                     });
                     const span = document.createElement('span'); span.textContent = val==='对'?'✅ 正确':'❌ 错误';
                     wrap.appendChild(radio); wrap.appendChild(span);
@@ -432,6 +493,7 @@
                     delete answerRecords[realIdx];
                     feedbackDiv.style.display = 'none';
                     updateProgress(); renderDirectory();
+                    autoSave();
                 });
             }
 
@@ -460,6 +522,7 @@
             answerRecords[realIdx] = { correct, userAnswer: userAns };
             showFeedback();
             renderDirectory();
+            autoSave();
         }
 
         function setFilter(type) {
@@ -481,6 +544,11 @@
             updateFilteredIndices();
             currentFilteredPos = 0;
             importStatus.textContent = `✅ 已加载 ${questionBank.length} 题`;
+            
+            // 尝试恢复进度
+            const restored = loadProgress();
+            if (!restored) autoSave(); // 首次保存
+            
             renderQuestion();
         }
 
@@ -490,6 +558,7 @@
             for (let k in answerRecords) delete answerRecords[k];
             renderQuestion();
             importStatus.textContent = `🔄 进度已重置`;
+            autoSave();
         }
 
         function downloadJSON(obj, name) { 
@@ -514,17 +583,54 @@
 
         function hasUnsaved() { return markedSet.size > 0 || Object.keys(answerRecords).length > 0; }
 
-        // 触摸滑动
-        let touchStartX = 0;
-        mainPanel.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
-        mainPanel.addEventListener('touchend', (e) => {
-            if (!touchStartX) return;
-            const diff = e.changedTouches[0].screenX - touchStartX;
-            if (Math.abs(diff) > 50) {
-                if (diff < 0) goNext(); else goPrev();
-            }
-            touchStartX = 0;
-        });
+        // 导入答题记录
+        function importProgressFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    // 兼容导出格式：可能是包含details的对象，或直接是进度对象
+                    let progress = data;
+                    if (data.details && Array.isArray(data.details)) {
+                        // 导出记录格式转换
+                        progress = { userAnswers: {}, marked: [], answerRecords: {} };
+                        data.details.forEach(d => {
+                            const q = questionBank.find(qq => qq.index === d.index && qq.type === d.type);
+                            if (q) {
+                                const idx = questionBank.indexOf(q);
+                                progress.userAnswers[idx] = d.userAnswer;
+                                progress.answerRecords[idx] = { correct: d.isCorrect, userAnswer: d.userAnswer };
+                            }
+                        });
+                    }
+                    
+                    if (!progress.userAnswers) throw new Error('无效的进度文件');
+                    
+                    // 清空当前并导入
+                    for (let k in userAnswers) delete userAnswers[k];
+                    markedSet.clear();
+                    for (let k in answerRecords) delete answerRecords[k];
+                    
+                    Object.entries(progress.userAnswers).forEach(([idx, ans]) => {
+                        if (questionBank[idx]) userAnswers[idx] = ans;
+                    });
+                    (progress.marked || []).forEach(idx => {
+                        if (questionBank[idx]) markedSet.add(Number(idx));
+                    });
+                    Object.entries(progress.answerRecords || {}).forEach(([idx, rec]) => {
+                        if (questionBank[idx]) answerRecords[idx] = rec;
+                    });
+                    
+                    renderQuestion();
+                    autoSave();
+                    importStatus.textContent = `📂 记录已导入`;
+                    setTimeout(() => importStatus.textContent = `✅ 已加载 ${questionBank.length} 题`, 1500);
+                } catch(err) {
+                    alert('导入失败：' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
 
         // ---------- 事件绑定 ----------
         jsonUpload.addEventListener('change', async e => {
@@ -533,6 +639,20 @@
             jsonUpload.value='';
         });
         loadFullBtn.addEventListener('click', loadFullQuestions);
+        
+        // 导入记录按钮
+        importProgressBtn.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,application/json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) importProgressFromFile(file);
+                input.remove();
+            };
+            input.click();
+        });
+        
         filterBtns.forEach(btn => btn.addEventListener('click', ()=> setFilter(btn.dataset.type)));
         submitBtn.addEventListener('click', handleSubmit);
         markBtn.addEventListener('click', ()=>{
@@ -540,12 +660,14 @@
             const realIdx = filteredIndices[currentFilteredPos];
             markedSet.has(realIdx) ? markedSet.delete(realIdx) : markedSet.add(realIdx);
             renderQuestion();
+            autoSave();
         });
         clearAnswerBtn.addEventListener('click', ()=>{
             const q = getCurrentQuestion(); if(!q)return;
             delete userAnswers[filteredIndices[currentFilteredPos]];
             delete answerRecords[filteredIndices[currentFilteredPos]];
             renderQuestion();
+            autoSave();
         });
         resetSessionBtn.addEventListener('click', resetProgress);
         exportMarkedBtn.addEventListener('click', ()=>{
@@ -570,7 +692,6 @@
             if (!isNaN(pos)) { currentFilteredPos = pos; renderQuestion(); }
         });
 
-        // 目录展开/收起 (默认收起)
         let expanded = false;
         toggleDirBtn.addEventListener('click', ()=>{
             expanded = !expanded;
@@ -578,11 +699,23 @@
             toggleDirBtn.textContent = expanded ? '◀' : '▶';
         });
 
+        // 键盘 & 滑动
         window.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev(); }
             else if (e.key === 'ArrowRight') { e.preventDefault(); goNext(); }
             else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); handleSubmit(); }
+        });
+
+        let touchStartX = 0;
+        mainPanel.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+        mainPanel.addEventListener('touchend', (e) => {
+            if (!touchStartX) return;
+            const diff = e.changedTouches[0].screenX - touchStartX;
+            if (Math.abs(diff) > 50) {
+                if (diff < 0) goNext(); else goPrev();
+            }
+            touchStartX = 0;
         });
 
         window.addEventListener('beforeunload', (e) => {
